@@ -1,21 +1,29 @@
 <script setup lang="ts">
+import { emmetHTML } from 'emmet-monaco-es'
+import * as monaco from 'monaco-editor'
 import { ref } from 'vue'
-import MonacoEditor from './components/MonacoEditor.vue'
-import TypescriptEditor from './components/TypescriptEditor.vue'
 import HTMLEditor from './components/HTMLEditor.vue'
-const type = ref('typescript')
+import TypescriptEditor from './components/TypescriptEditor.vue'
+import { CONFIG } from './config'
+import { ESTimer } from './utils/helpers/time.helper'
+
+const type = ref<'html' | 'typescript'>('html')
+const config = ref(CONFIG)
+emmetHTML(monaco, ['html'])
 </script>
 
 <template>
   <header class="px-4">
-    <div></div>
     <nav class="py-2">
       <button @click="type = 'html'" :class="type === 'html' ? 'active' : ''">HTML</button>
       <button @click="type = 'typescript'" :class="type === 'typescript' ? 'active' : ''">
         Typescript
       </button>
-      <!-- <button @click="type = 'sql'" :class="type === 'html' ? 'sql' : ''">SQL</button> -->
     </nav>
+    <div style="color: white" class="px-4 flex gap-4">
+      <a href="./html/editor.2.1.html" target="_blank">Editor.2.1</a>
+      Version: {{ ESTimer.timeToText(config.version, 'vYY.MM.DD.hh-mm', 0) }}
+    </div>
   </header>
 
   <main>
@@ -24,9 +32,6 @@ const type = ref('typescript')
     </div>
     <div v-if="type === 'typescript'" style="width: 100%; height: 100%">
       <TypescriptEditor />
-    </div>
-    <div v-if="type === 'sql'" style="width: 800px; height: 800px">
-      <MonacoEditor v-model:value="type" language="typescript" />
     </div>
   </main>
 </template>
@@ -88,7 +93,6 @@ header {
 }
 main {
   flex: 1;
-  background-color: green;
   height: calc(100% - 50px);
 }
 </style>

@@ -1,14 +1,20 @@
 <script setup lang="ts">
+import { ESDom } from '@/utils/dom/highlight'
 import * as acorn from 'acorn'
-import { onMounted, ref } from 'vue'
+import * as acornWalk from 'acorn-walk'
+import { nextTick, ref } from 'vue'
 import MonacoEditor from './MonacoEditor.vue'
 import IconCopy from './icons/IconCopy.vue'
 import IconSyncAlt from './icons/IconSyncAlt.vue'
+import WorkerScript from './runtime.worker.ts?worker'
 
-const monacoEditor = ref<InstanceType<typeof MonacoEditor>>()
-const logOutputElement = ref<InstanceType<typeof HTMLElement>>()
+let worker: Worker | null = null
 
-const variableList = ref<{ name: string; value: string }[]>([])
+const monacoEditorRef = ref<InstanceType<typeof MonacoEditor>>()
+const logsContainerRef = ref<InstanceType<typeof HTMLElement>>()
+
+const variableList = ref<{ name: string; value: string; type: string }[]>([])
+const logsList = ref<string[]>([])
 
 const currentLanguage = ref<'Javascript' | 'Typescript'>('Typescript')
 
@@ -16,130 +22,135 @@ let oldText = ''
 let jsText = ''
 const tsText = ref('')
 
-onMounted(() => {
-  tsText.value = `enum OrderStatus {
-  Pending = 1,
-  Processing = 2,
-  Completed = 3,
-  Cancelled = 4
-}
-
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  tags: string[];
-  available: boolean;
-}
-
-let userInfo: [string, number] = ['Alice', 30];
-
-let productCount: number = 5;
-let shopName: string = 'My Shop';
-let isOpen: boolean = true;
-
-let categories: string[] = ['Electronics', 'Books', 'Clothing'];
-let prices: Array<number> = [100, 200, 150];
-
-const product1: Product = {
-  id: 1,
-  name: 'Smartphone',
-  price: 499.99,
-  tags: ['electronics', 'mobile'],
-  available: true
-};
-
-function calculateTotal(products: Product[]): number {
-  return products.reduce((sum, p) => sum + p.price, 0);
-}
-
-let productList: Product[] = [product1];
-const newProduct: Product = {
-  id: 3,
-  name: 'T-Shirt',
-  price: 19.99,
-  tags: ['clothing'],
-  available: true
-};
-
-productList.push(newProduct);
-console.log('Updated product list:', productList);
-`
-})
-
-function walk(node: acorn.Node, callback: (node: acorn.Node, depth: number) => void, depth = 0) {
-  callback(node, depth)
-  // Không duyệt các biến bên trong các block
-  const blockScopeTypes = ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']
-  if (blockScopeTypes.includes(node.type)) {
-    return
+const getWorker = (): Worker => {
+  if (!worker) {
+    worker = (WorkerScript as any)()
+    worker?.addEventListener('error', () => {
+      worker?.terminate()
+      worker = null
+    })
+    worker?.addEventListener('messageerror', () => {
+      worker?.terminate()
+      worker = null
+    })
   }
+  return worker!
+}
 
-  for (const key in node) {
-    const child = (node as any)[key]
-    if (Array.isArray(child)) {
-      child.forEach((n) => n && typeof n.type === 'string' && walk(n, callback, depth + 1))
-    } else if (child && typeof child.type === 'string') {
-      walk(child, callback, depth + 1)
+const showVariablesFomWorker = (varListString: any[]) => {
+  variableList.value = varListString.map((i: any) => {
+    return {
+      type: i.type,
+      name: i.name,
+      value: ESDom.highlightCode(String(i.value)),
+    }
+  })
+}
+
+const showLogsFomWorker = (logsString: string[]) => {
+  // logsList.value = logsString // không dùng do vẫn trỏ vào địa chỉ cũ làm VueJS tưởng không cập nhật
+  logsList.value = JSON.parse(JSON.stringify(logsString))
+  nextTick(() => {
+    if (logsContainerRef.value) {
+      const el = logsContainerRef.value
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 50) {
+        el.scrollTop = el.scrollHeight
+      }
+    }
+  })
+}
+
+let executionId = 0
+const logsOutput: Record<string, any[]> = {} // lưu log tương ứng với mỗi id khác nhau
+const runCodeInWorker = (codeJs: string, varNameList: string[], TIMEOUT_MS = 4000) => {
+  const myExecutionId = executionId + 1
+  executionId = executionId + 1
+
+  const currentWorker = getWorker()
+  const timer = setTimeout(() => {
+    currentWorker?.terminate()
+    worker = null
+    console.warn('Worker execution timeout !!!')
+  }, TIMEOUT_MS)
+
+  const onMessage = (e: MessageEvent) => {
+    const message: { executionId: number; type: 'Log' | 'Variables' | 'ERROR'; data: any } = e.data
+    // do có rất nhiều thằng cùng bắn vào 'message' nên chỉ xử lý message của mình do đã đánh dấu messageId
+    if (message.type === 'ERROR') {
+      worker?.removeEventListener('message', onMessage)
+      logsOutput[message.executionId] = [message.data]
+      showLogsFomWorker(logsOutput[message.executionId])
+      showVariablesFomWorker([])
+      return
+    }
+
+    if (message.executionId !== myExecutionId) return
+    clearTimeout(timer)
+    if (message.executionId < executionId) {
+      delete logsOutput[message.executionId] // xóa logs bản cũ đi thôi
+      return
+    } else {
+      if (message.type === 'Variables') {
+        showVariablesFomWorker(message.data)
+      }
+      if (!logsOutput[message.executionId]) {
+        logsOutput[message.executionId] = []
+      }
+      if (message.type === 'Log') {
+        logsOutput[message.executionId].push(message.data)
+      }
+      showLogsFomWorker(logsOutput[message.executionId])
     }
   }
+
+  worker?.addEventListener('message', onMessage)
+
+  const message = { codeJs, varNameList, executionId, TIMEOUT_MS }
+  worker?.postMessage(message)
 }
 
-function findVariables(code: string) {
+const findVariables = async (codeJS: string) => {
   try {
-    const ast = acorn.parse(code, { ecmaVersion: 2020 })
-    const vars: any = []
+    codeJS = codeJS.replace(/^export\s+/gm, '')
+    const ast = acorn.parse(codeJS, { ecmaVersion: 'latest' })
 
-    walk(ast, (node: any) => {
-      if (node.type === 'VariableDeclarator' && node.id && node.id.name) {
-        vars.push(node.id.name)
-      }
-      if (node.type === 'FunctionDeclaration' && node.id) {
-        vars.push(node.id.name)
-      }
-      if (node.type === 'ClassDeclaration' && node.id) {
-        vars.push(node.id.name)
-      }
-    })
-
-    const logs: string[] = []
-    const customConsole = {
-      log: (...args: any[]) => {
-        logs.push(
-          args
-            .map((arg) => {
-              try {
-                return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-              } catch {
-                return '[Unserializable]'
-              }
-            })
-            .join(' '),
-        )
+    let foundInfinite = false
+    acornWalk.simple(ast, {
+      ForStatement(node: any) {
+        if (!node.test) foundInfinite = true // for(;;)
       },
+      WhileStatement(node: any) {
+        if (node.test.type === 'Literal' && node.test.value === true) {
+          foundInfinite = true // while(true)
+        }
+      },
+      DoWhileStatement(node: any) {
+        if (node.test.type === 'Literal' && node.test.value === true) {
+          foundInfinite = true // do{}while(true)
+        }
+      },
+    })
+    if (foundInfinite) {
+      console.warn('Phát hiện có vòng lặp vô tận: ', codeJS)
+      return
     }
 
-    const func = new Function(
-      'console',
-      ` ${code}
-        return { ${[...vars].join(',')} };
-      `,
-    )
-    const resultFunc = func(customConsole)
-
-    const varList = Object.keys(resultFunc).map((key: string) => {
-      let value: any = resultFunc[key]
-      if (typeof value === 'object' && value !== null) {
-        try {
-          value = JSON.stringify(value, null, 2)
-        } catch {
-          value = '[Circular]'
+    const varNameList: string[] = []
+    for (const node of ast.body) {
+      if (node.type === 'VariableDeclaration') {
+        for (const decl of node.declarations) {
+          if ((decl.id as any)?.name) {
+            varNameList.push((decl.id as any).name)
+          }
         }
+      } else if (node.type === 'FunctionDeclaration' && node.id?.name) {
+        varNameList.push(node.id.name)
+      } else if (node.type === 'ClassDeclaration' && node.id?.name) {
+        varNameList.push(node.id.name)
       }
-      return { name: key, value }
-    })
+    }
 
-    return { varList, logs }
+    runCodeInWorker(codeJS, varNameList)
   } catch (error) {
     console.log('🚀 ~ ~ findVariables ~ error:', error)
   }
@@ -147,13 +158,7 @@ function findVariables(code: string) {
 
 const reloadPreview = async (jsTextProp: string) => {
   jsText = jsTextProp
-  const response = findVariables(jsTextProp)
-  if (!response) return
-
-  variableList.value = response.varList
-  if (logOutputElement.value) {
-    logOutputElement.value.textContent = response.logs.join('\n \n')
-  }
+  findVariables(jsTextProp)
 }
 
 const switchLanguage = () => {
@@ -178,7 +183,7 @@ const copy = () => {
   <div class="typescript-editor">
     <div class="editor-container">
       <div class="editor-header">
-        <span>Typescript</span>
+        <span>TypescriptEditor</span>
         <button @click="switchLanguage" style="margin-left: auto">
           <span :style="currentLanguage === 'Javascript' ? '' : 'opacity: 0.3'">Javascript</span>
           <IconSyncAlt />
@@ -192,7 +197,7 @@ const copy = () => {
       </div>
       <div class="editor-content">
         <MonacoEditor
-          ref="monacoEditor"
+          ref="monacoEditorRef"
           v-model:value="tsText"
           language="typescript"
           @javascript-output="(v) => reloadPreview(v)"
@@ -211,21 +216,28 @@ const copy = () => {
           </thead>
           <tbody>
             <tr v-for="(item, index) in variableList" :key="index">
-              <td>{{ item.name }}</td>
               <td>
-                <pre>{{ item.value }}</pre>
+                <div style="color: #9cdcfe">{{ item.name }}</div>
+                <div style="color: gray; font-size: 0.8em">{{ item.type }}</div>
+              </td>
+              <td>
+                <div v-html="item.value"></div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <h3 style="margin-top: 1rem;">Console Output</h3>
-      <div ref="logOutputElement" class="logs-container"></div>
+      <h3 style="margin-top: 1rem">Console Output</h3>
+      <div class="logs-container" ref="logsContainerRef">
+        <div v-for="(log, index) in logsList" :key="index">
+          {{ log }}
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .typescript-editor {
   width: 100%;
   height: 100%;
@@ -299,6 +311,8 @@ const copy = () => {
     .variable-container {
       height: 60%;
       flex: 3;
+      font-size: 14px;
+      font-family: monospace;
       overflow: auto;
       border: 1px solid #444;
       table {
@@ -314,6 +328,47 @@ const copy = () => {
           border: 1px solid #444;
           text-align: left;
           padding: 0 8px;
+          div {
+            white-space: pre;
+          }
+
+          .boolean {
+            color: #00a7bd;
+          }
+          .null {
+            color: #d88200; /* cam nhạt */
+          }
+          .variable {
+            color: #009688; /* teal đậm */
+            color: gray; /* teal đậm */
+          }
+          .keyword {
+            // color: #d16ba5; /* hồng tím nổi bật */
+            color: #569cd6; /* hồng tím nổi bật */
+          }
+          .property {
+            // color: #26c6da; /* cyan nhạt */
+            color: #569cd6;
+          }
+          .number {
+            color: #f4a261; /* cam sáng */
+          }
+          .string {
+            color: #409444; /* xanh lá pastel đậm */
+          }
+          .bracket {
+            color: #cfd8dc; /* xám xanh nhạt */
+            font-weight: bold;
+          }
+          .key {
+            color: #9fa8da; /* tím nhạt dễ đọc */
+          }
+          .regex {
+            color: violet; /* xám rất nhạt, dùng cho fallback */
+          }
+          .default {
+            color: #eceff1; /* xám rất nhạt, dùng cho fallback */
+          }
         }
       }
     }

@@ -1,37 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import MonacoEditor from './MonacoEditor.vue'
+import IconCopy from './icons/IconCopy.vue'
 
+const monacoEditorRef = ref<InstanceType<typeof MonacoEditor>>()
 const htmlValue = ref('')
-
-onMounted(() => {
-  htmlValue.value = `<!DOCTYPE html>
-<html lang="vi">
-
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    table, th, td { border: 1px solid black; border-collapse: collapse; padding: 5px; }
-  </style>
-</head>
-
-<body>
-  <h2>Chào mừng đến với trang demo</h2>
-  <img src="https://picsum.photos/200/100" alt="Ảnh mẫu" />
-  <h2>Liên hệ</h2>
-  <form>
-    <label>Họ tên: <input type="text" name="name" /></label><br />
-    <label>Email: <input type="email" name="email" /></label><br />
-    <input type="submit" value="Gửi" />
-  </form>
-  <footer>
-    <p>&copy; 2025 Trang web demo</p>
-  </footer>
-</body>
-
-</html>
-`
-})
 
 const previewRef = ref<HTMLElement | null>(null)
 
@@ -55,16 +28,32 @@ const reloadPreview = (htmlText: string) => {
   const myFrame = previewRef.value.getElementsByTagName('iframe')[0]
   writeWindow(myFrame.contentWindow!, htmlText)
 }
+
+const copy = () => {
+  navigator.clipboard.writeText(htmlValue.value).then(() => {
+    // alert("Copied to clipboard!" + code);
+  })
+}
 </script>
 
 <template>
   <div class="html-editor">
-    <div class="editor-content">
-      <MonacoEditor
-        v-model:value="htmlValue"
-        language="html"
-        @update:value="(v) => reloadPreview(v)"
-      />
+    <div class="editor-container">
+      <div class="editor-header justify-end">
+        <span>HTMLEditor</span>
+        <button @click="copy" class="ml-auto">
+          <IconCopy />
+          <span>Copy</span>
+        </button>
+      </div>
+      <div class="editor-content">
+        <MonacoEditor
+          ref="monacoEditorRef"
+          v-model:value="htmlValue"
+          language="html"
+          @update:value="(v) => reloadPreview(v)"
+        />
+      </div>
     </div>
     <div class="preview" ref="previewRef">
       <iframe></iframe>
@@ -80,16 +69,64 @@ const reloadPreview = (htmlText: string) => {
   padding: 0px;
   // background-color: brown;
   // gap: 10px;
-  .editor-content {
+  .editor-container {
     flex-basis: 40%;
-    min-width: 400px;
+    min-width: 500px;
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
     // padding: 10px;
     // background-color: coral;
+    .editor-header {
+      background-color: #2d2d2d;
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      font-size: 14px;
+      color: #ccc;
+      border-bottom: 1px solid #3a3a3a;
+      gap: 1em;
+
+      button {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        user-select: none;
+        color: white;
+        border: none;
+        cursor: pointer;
+        background-color: inherit;
+        border-radius: 2px;
+        padding: 4px 8px;
+        transition:
+          background-color 0.2s ease,
+          box-shadow 0.2s ease,
+          transform 0.1s ease;
+
+        &:hover {
+          background-color: #3a3a3a;
+        }
+        &:focus {
+          outline: none;
+          background-color: #444;
+          box-shadow: 0 0 0 2px #60a5fa80; /* Light blue focus ring */
+        }
+        &:active {
+          transform: scale(0.97);
+        }
+      }
+    }
+
+    .editor-content {
+      background-color: orange;
+      width: 100%;
+      flex: 1;
+    }
   }
   .preview {
     flex-basis: 40%;
-    min-width: 400px;
+    min-width: 500px;
     flex: 1;
     background-color: white;
     iframe {

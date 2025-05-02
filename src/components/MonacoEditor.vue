@@ -4,8 +4,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import * as monaco from 'monaco-editor'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const props = defineProps<{
   value: string
@@ -50,26 +50,63 @@ onMounted(() => {
       },
     })
 
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.DownArrow, () =>
+      editor!.trigger('', 'editor.action.copyLinesDownAction', null),
+    )
+
     editor.onDidChangeModelContent(() => {
-      emit('update:value', editor!.getValue())
+      const editorValue = editor!.getValue()
+      emit('update:value', editorValue)
 
       if (props.language === 'typescript') {
         const model = editor!.getModel()
         monaco.languages.typescript
           .getTypeScriptWorker()
           .then((worker) => worker(model!.uri))
-          .then((client) => {
-            client.getEmitOutput(model!.uri.toString()).then((result) => {
-              const jsOutput = result.outputFiles.find((file) => file.name.endsWith('.js'))
-              if (jsOutput) {
-                emit('javascript-output', jsOutput.text)
-              } else {
-                console.warn('No JS output generated.')
-              }
-            })
+          .then(async (client) => {
+            // const diagnostics = await client.getSemanticDiagnostics(model!.uri.toString())
+            // if (diagnostics.length > 0) {
+            //   return console.warn('TypeScript errors found, skip convert.', diagnostics)
+            // }
+            const result = await client.getEmitOutput(model!.uri.toString())
+            const jsOutput = result.outputFiles.find((file) => file.name.endsWith('.js'))
+            if (jsOutput) {
+              emit('javascript-output', jsOutput.text)
+            } else {
+              console.warn('No JS output generated.')
+            }
           })
       }
     })
+
+    // Danh sách action
+    // const actions = editor.getSupportedActions()
+    // actions.forEach((action) => {
+    //   console.log(`ID: ${action.id}, Label: ${action.label}`)
+    // })
+
+    // Danh sách phím tắt
+    // const keybindings = editor._standaloneKeybindingService._getResolver()._defaultKeybindings
+    // keybindings.forEach((binding) => {
+    //   const chords = binding.resolvedKeybinding._chords
+    //   const keys = chords.map(
+    //     (chord) =>
+    //       chord._ctrlKey +
+    //       '+' +
+    //       chord._shiftKey +
+    //       '+' +
+    //       chord._altKey +
+    //       '+' +
+    //       chord._metaKey +
+    //       '+' +
+    //       chord._keyCode,
+    //   )
+    //   console.log({
+    //     command: binding.command,
+    //     keybinding: binding.resolvedKeybinding.getLabel(), // human-readable
+    //     rawChordKeys: keys,
+    //   })
+    // })
   }
 })
 
