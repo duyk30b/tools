@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -17,37 +17,59 @@
         --error-color: #dc3545;
       }
 
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, sans-serif;
+      html {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+          sans-serif;
         background: var(--background-color);
         color: var(--text-color);
-        padding: 20px;
-        max-width: 1200px;
-        margin: auto;
-        line-height: 1.6;
+        height: 100%;
       }
 
-      .container {
+      body {
+        margin: 20px;
+        line-height: 1.6;
         background: white;
         padding: 30px;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        height: 85%;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      main {
+        display: flex;
+        gap: 10px;
+        height: 100%;
       }
 
       h2 {
-        margin: 0 0 20px 0;
         color: var(--primary-color);
         display: flex;
         align-items: center;
         gap: 10px;
       }
 
+      .input-container {
+        flex: 1;
+        flex-basis: 45%;
+      }
+      .output-container {
+        flex: 1;
+        flex-basis: 45%;
+      }
+
       textarea {
         width: 100%;
+        height: 600px;
         padding: 12px;
         font-size: 14px;
-        font-family: "Consolas", "Monaco", monospace;
+        font-family: 'Consolas', 'Monaco', monospace;
         margin-top: 5px;
         box-sizing: border-box;
         border: 1px solid var(--border-color);
@@ -99,7 +121,6 @@
 
       .status {
         font-size: 14px;
-        margin-top: 10px;
         padding: 8px 12px;
         border-radius: 4px;
         display: none;
@@ -124,125 +145,128 @@
       }
 
       .copy-icon::before {
-        content: "📋";
+        content: '📋';
       }
 
       .convert-icon::before {
-        content: "🔄";
+        content: '🔄';
       }
     </style>
   </head>
   <body>
-    <div class="container">
+    <header>
       <h2>🔄 SQL Parameter Replacer</h2>
-      <textarea
-        id="sql-input"
-        rows="12"
-        placeholder="Paste your SQL query with parameters here..."
-      >
-SELECT * FROM users WHERE email = $1 AND created_at > $2
--- PARAMETERS: ["example@gmail.com", "2024-01-01"]
-    </textarea
-      >
-
-      <div class="actions">
-        <button id="convert-btn" class="convert-icon">Convert</button>
-        <button id="copy-btn" class="copy-icon">Copy</button>
-      </div>
       <div id="status" class="status"></div>
-      <textarea id="sql-output" class="output" rows="12" readonly></textarea>
-    </div>
+    </header>
+
+    <main>
+      <div class="input-container">
+        <button id="convert-btn" class="convert-icon">Convert</button>
+        <textarea
+          id="sql-input"
+          rows="12"
+          placeholder="Paste your SQL query with parameters here..."
+        >
+          SELECT * FROM users WHERE email = $1 AND created_at > $2
+          -- PARAMETERS: ["example@gmail.com", "2024-01-01"]
+          
+        </textarea>
+      </div>
+      <div class="output-container">
+        <button id="copy-btn" class="copy-icon">Copy</button>
+        <textarea id="sql-output" class="output" rows="12" readonly></textarea>
+      </div>
+    </main>
 
     <script
       data-cfasync="false"
       src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"
     ></script>
     <script>
-      document.getElementById("convert-btn").addEventListener("click", () => {
-        const input = document.getElementById("sql-input").value;
-        const output = document.getElementById("sql-output");
-        const status = document.getElementById("status");
-        status.className = "status";
-        status.textContent = "";
+      document.getElementById('convert-btn').addEventListener('click', () => {
+        const input = document.getElementById('sql-input').value
+        const output = document.getElementById('sql-output')
+        const status = document.getElementById('status')
+        status.className = 'status'
+        status.textContent = ''
 
-        let params;
-        let sqlBody;
-        let finalSql;
+        let params
+        let sqlBody
+        let finalSql
         try {
           // Split input into SQL and parameters
-          const parts = input.split("-- PARAMETERS:");
-          sqlBody = parts[0].trim();
+          const parts = input.split('-- PARAMETERS:')
+          sqlBody = parts[0].trim()
 
           // If no parameters section exists, just format the SQL
           if (parts.length === 1) {
             finalSql = window.sqlFormatter.format(sqlBody, {
-              language: "postgresql",
-              keywordCase: "upper",
-            });
-            status.className = "status success";
-            status.textContent = "Successfully formatted SQL!";
-            output.value = finalSql;
-            return;
+              language: 'postgresql',
+              keywordCase: 'upper',
+            })
+            status.className = 'status success'
+            status.textContent = 'Successfully formatted SQL!'
+            output.value = finalSql
+            return
           }
 
-          const paramStr = parts[1].trim();
+          const paramStr = parts[1].trim()
 
           // Parse parameters
-          const arrayStr = paramStr.replace(/^\[|\]$/g, ""); // Remove outer brackets
-          params = arrayStr.split(",").map((item) => {
+          const arrayStr = paramStr.replace(/^\[|\]$/g, '') // Remove outer brackets
+          params = arrayStr.split(',').map((item) => {
             // Remove quotes and trim whitespace
-            return item.trim().replace(/^['"]|['"]$/g, "");
-          });
+            return item.trim().replace(/^['"]|['"]$/g, '')
+          })
 
           if (!Array.isArray(params)) {
-            throw new Error("Parameters must be an array");
+            throw new Error('Parameters must be an array')
           }
         } catch (e) {
-          output.value = `❌ Error processing input: ${e.message}\nRaw input: ${input}`;
-          status.className = "status error";
-          status.textContent = "Error processing input";
-          return;
+          output.value = `❌ Error processing input: ${e.message}\nRaw input: ${input}`
+          status.className = 'status error'
+          status.textContent = 'Error processing input'
+          return
         }
 
         params.forEach((val, i) => {
           // Use a more precise regex that matches the exact parameter number
-          const regex = new RegExp("\\$" + (i + 1) + "(?!\\d)", "g");
-          const quoted =
-            typeof val === "string" ? `'${val.replace(/'/g, "''")}'` : val;
-          sqlBody = sqlBody.replace(regex, quoted);
-        });
+          const regex = new RegExp('\\$' + (i + 1) + '(?!\\d)', 'g')
+          const quoted = typeof val === 'string' ? `'${val.replace(/'/g, "''")}'` : val
+          sqlBody = sqlBody.replace(regex, quoted)
+        })
 
         try {
           finalSql = window.sqlFormatter.format(sqlBody, {
-            language: "postgresql",
-            keywordCase: "upper",
-          });
-          status.className = "status success";
-          status.textContent = "Successfully converted!";
+            language: 'postgresql',
+            keywordCase: 'upper',
+          })
+          status.className = 'status success'
+          status.textContent = 'Successfully converted!'
         } catch (err) {
-          console.error("Formatting error:", err);
-          status.className = "status warning";
-          status.textContent = "Converted but formatting failed";
+          console.error('Formatting error:', err)
+          status.className = 'status warning'
+          status.textContent = 'Converted but formatting failed'
         }
 
         // Set the value and force update
-        output.value = finalSql;
-        output.textContent = finalSql;
-        output.innerHTML = finalSql;
-      });
+        output.value = finalSql
+        output.textContent = finalSql
+        output.innerHTML = finalSql
+      })
 
-      document.getElementById("copy-btn").addEventListener("click", () => {
-        const output = document.getElementById("sql-output");
-        const status = document.getElementById("status");
-        output.select();
-        document.execCommand("copy");
-        status.className = "status success";
-        status.textContent = "Copied to clipboard!";
+      document.getElementById('copy-btn').addEventListener('click', () => {
+        const output = document.getElementById('sql-output')
+        const status = document.getElementById('status')
+        output.select()
+        document.execCommand('copy')
+        status.className = 'status success'
+        status.textContent = 'Copied to clipboard!'
         setTimeout(() => {
-          status.className = "status";
-          status.textContent = "";
-        }, 2000);
-      });
+          status.className = 'status'
+          status.textContent = ''
+        }, 2000)
+      })
     </script>
   </body>
 </html>

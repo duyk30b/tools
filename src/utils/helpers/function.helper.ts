@@ -13,4 +13,30 @@ export class ESFunction {
     )
     return Promise.race([promise, timeoutPromise])
   }
+
+  static debounce = (func: (...args: any[]) => void, delay: number) => {
+    let timeout: ReturnType<typeof setTimeout> | null
+
+    return (...args: any[]) => {
+      if (timeout) clearTimeout(timeout)
+
+      timeout = setTimeout(() => {
+        func(...args)
+        timeout = null
+      }, delay)
+    }
+  }
+
+  static throttle = (func: (...args: any[]) => void, delay: number) => {
+    let lastCall = 0
+
+    return function (...args: any[]) {
+      const now = new Date().getTime()
+
+      if (now - lastCall >= delay) {
+        lastCall = now
+        return func(...args)
+      }
+    }
+  }
 }

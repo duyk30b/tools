@@ -7,6 +7,7 @@ import MonacoEditor from './MonacoEditor.vue'
 import IconCopy from './icons/IconCopy.vue'
 import IconSyncAlt from './icons/IconSyncAlt.vue'
 import WorkerScript from './runtime.worker.ts?worker'
+import { ESFunction } from '@/utils/helpers/function.helper'
 
 let worker: Worker | null = null
 
@@ -161,6 +162,8 @@ const reloadPreview = async (jsTextProp: string) => {
   findVariables(jsTextProp)
 }
 
+const handleUpdateJSText = ESFunction.debounce(reloadPreview, 200)
+
 const switchLanguage = () => {
   if (currentLanguage.value === 'Typescript') {
     currentLanguage.value = 'Javascript'
@@ -200,7 +203,7 @@ const copy = () => {
           ref="monacoEditorRef"
           v-model:value="tsText"
           language="typescript"
-          @javascript-output="(v) => reloadPreview(v)"
+          @javascript-output="(v) => handleUpdateJSText(v)"
         />
       </div>
     </div>

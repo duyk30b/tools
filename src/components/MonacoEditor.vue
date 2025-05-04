@@ -107,6 +107,60 @@ onMounted(() => {
     //     rawChordKeys: keys,
     //   })
     // })
+
+    monaco.languages.registerCompletionItemProvider('typescript', {
+      provideCompletionItems: (model, position) => {
+        const wordInfo = model.getWordUntilPosition(position)
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: wordInfo.startColumn,
+          endColumn: wordInfo.endColumn,
+        }
+
+        return {
+          suggestions: [
+            {
+              label: 'clg',
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              insertText: 'console.log($0);',
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: 'Console log',
+              range,
+            },
+          ],
+        }
+      },
+    })
+
+    monaco.languages.registerCompletionItemProvider('typescript', {
+      provideCompletionItems: (model, position) => {
+        const wordInfo = model.getWordUntilPosition(position)
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: wordInfo.startColumn,
+          endColumn: wordInfo.endColumn,
+        }
+        return {
+          suggestions: [
+            {
+              label: 'for',
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              insertText: [
+                'for (let ${1:index} = 0; ${1} < ${2:array}.length; ${1}++) {',
+                '\tconst ${3:element} = ${2:array}[${1}];',
+                '\t$0',
+                '}',
+              ].join('\n'),
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: 'For loop snippet',
+              range,
+            },
+          ],
+        }
+      },
+    })
   }
 })
 

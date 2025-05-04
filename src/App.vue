@@ -6,7 +6,7 @@ import HTMLEditor from './components/HTMLEditor.vue'
 import TypescriptEditor from './components/TypescriptEditor.vue'
 import { CONFIG } from './config'
 import { ESTimer } from './utils/helpers/time.helper'
-
+import { IconLink } from './components/icons'
 const type = ref<'html' | 'typescript'>('html')
 const config = ref(CONFIG)
 emmetHTML(monaco, ['html'])
@@ -19,9 +19,12 @@ emmetHTML(monaco, ['html'])
       <button @click="type = 'typescript'" :class="type === 'typescript' ? 'active' : ''">
         Typescript
       </button>
+      <a class="btn" href="./html/postgres.html" target="_blank">
+        <IconLink />
+        <span>Postgres</span>
+      </a>
     </nav>
     <div style="color: white" class="px-4 flex gap-4">
-      <a href="./html/editor.2.1.html" target="_blank">Editor.2.1</a>
       Version: {{ ESTimer.timeToText(config.version, 'vYY.MM.DD.hh-mm', 0) }}
     </div>
   </header>
@@ -45,18 +48,20 @@ header {
   height: 50px;
   padding: 0 1rem;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #3a3a3a;
   nav {
     display: flex;
+    flex-wrap: wrap;
     justify-content: end;
     align-items: center;
     font-size: 16px;
     color: #ccc;
     gap: 1em;
 
-    button {
+    button, a.btn {
       display: flex;
       align-items: center;
       gap: 0.5em;
@@ -93,6 +98,11 @@ header {
 }
 main {
   flex: 1;
-  height: calc(100% - 50px);
+  @media screen and (max-width: 900px) {
+    // width: 45%;
+  }
+  @media screen and (min-width: 900px) {
+    height: calc(100% - 50px);
+  }
 }
 </style>

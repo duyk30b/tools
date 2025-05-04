@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import MonacoEditor from './MonacoEditor.vue'
-import IconCopy from './icons/IconCopy.vue'
+import { IconCopy, IconLink } from './icons'
+import { ESFunction } from '@/utils/helpers/function.helper'
 
 const monacoEditorRef = ref<InstanceType<typeof MonacoEditor>>()
 const htmlValue = ref('')
@@ -21,6 +22,7 @@ const writeWindow = (w: Window, htmlText: string, cssText?: string, jsText?: str
 }
 
 const reloadPreview = (htmlText: string) => {
+  // return
   if (!previewRef.value) return
   previewRef.value.innerHTML = ''
   const iframeNode = document.createElement('iframe')
@@ -28,6 +30,8 @@ const reloadPreview = (htmlText: string) => {
   const myFrame = previewRef.value.getElementsByTagName('iframe')[0]
   writeWindow(myFrame.contentWindow!, htmlText)
 }
+
+const handleUpdateHtmlValue = ESFunction.debounce(reloadPreview, 200)
 
 const copy = () => {
   navigator.clipboard.writeText(htmlValue.value).then(() => {
@@ -41,7 +45,11 @@ const copy = () => {
     <div class="editor-container">
       <div class="editor-header justify-end">
         <span>HTMLEditor</span>
-        <button @click="copy" class="ml-auto">
+        <a class="btn ml-auto" href="./html/editor.2.1.html" target="_blank">
+          <IconLink />
+          <span>v2.1</span>
+        </a>
+        <button @click="copy">
           <IconCopy />
           <span>Copy</span>
         </button>
@@ -51,7 +59,7 @@ const copy = () => {
           ref="monacoEditorRef"
           v-model:value="htmlValue"
           language="html"
-          @update:value="(v) => reloadPreview(v)"
+          @update:value="(v) => handleUpdateHtmlValue(v)"
         />
       </div>
     </div>
@@ -88,7 +96,8 @@ const copy = () => {
       border-bottom: 1px solid #3a3a3a;
       gap: 1em;
 
-      button {
+      button,
+      a.btn {
         display: flex;
         align-items: center;
         gap: 0.5em;
