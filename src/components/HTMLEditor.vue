@@ -45,7 +45,7 @@ const copy = () => {
     <div class="editor-container">
       <div class="editor-header justify-end">
         <span>HTMLEditor</span>
-        <a class="btn ml-auto" href="./html/editor.2.1.html" target="_blank">
+        <a class="btn ml-auto" href="./html/html-editor.v2.1.html" target="_blank">
           <IconLink />
           <span>v2.1</span>
         </a>

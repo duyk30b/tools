@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=windows-1258" />
+    <title>HTMLEditor - v2.2</title>
+    <style>
+      html {
+        height: 100%;
+        margin: 0;
+      }
+      iframe {
+        width: calc(100% - 10px);
+        height: calc(100% - 10px);
+        border: none;
+      }
+    </style>
+  </head>
+  <body style="display: flex; height: 100%; margin: 0">
+    <main style="width: 50%; min-width: 100px; resize: horizontal; overflow: auto">
+      <textarea
+        id="editor"
+        style="
+          width: calc(100% - 30px);
+          height: calc(100% - 30px);
+          background: #def;
+          padding: 10px;
+          resize: none;
+          outline: 0;
+        "
+      ></textarea>
+    </main>
+    <main id="preview" style="flex: 1; min-width: 100px; overflow: auto"></main>
+  </body>
+  <script type="text/javascript">
+    const editor = document.getElementById('editor')
+    const preview = document.getElementById('preview')
+    editor.addEventListener('input', (event) => {
+      const htmlText = event.target.value
+      preview.innerHTML = ''
+      preview.appendChild(document.createElement('iframe'))
+      const iframe = preview.getElementsByTagName('iframe')[0]
+      iframe.contentWindow.document.open()
+      iframe.contentWindow.document.write(htmlText)
+      iframe.contentWindow.document.close()
+    })
+  </script>
+</html>
